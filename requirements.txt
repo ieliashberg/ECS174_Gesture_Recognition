@@ -1,1 +1,11 @@
-mediapipe
+# Core runtime
+mediapipe==0.10.14
+opencv-python==4.10.0.84
+numpy>=1.26
+
+# You import torch (for later training)
+torch==2.5.1
+
+# Nice-to-haves for data wrangling/plots (optional)
+pandas>=2.2
+matplotlib>=3.8
