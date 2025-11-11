@@ -11,7 +11,7 @@ cap = cv2.VideoCapture(0)  # could be 2 or something else
 prev_time = time.perf_counter()  # for fps
 
 with mp_hands.Hands(
-    model_complexity=0, min_detection_confidence=0.8, min_tracking_confidence=0.5, max_num_hands = 3
+    model_complexity=0, min_detection_confidence=0.8, min_tracking_confidence=0.5, max_num_hands = 1
 ) as hands:
     while cap.isOpened:  # While capturin from the video
         success, frame = cap.read()
