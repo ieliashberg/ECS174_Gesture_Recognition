@@ -4,6 +4,7 @@ import time
 import torch
 import numpy as np
 from static_gesture_net import StaticGestureNet
+from utils import normalize
 
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
@@ -13,7 +14,7 @@ cap = cv2.VideoCapture(0)  # could be 2 or something else
 prev_time = time.perf_counter()  # for fps
 
 # define the model we will be using
-model = torch.load("static_gesture_net_v1.pt", map_location="cpu")
+model = torch.load("trained_models/static_gesture_net_v1.pt", map_location="cpu")
 net = StaticGestureNet(model["input_dim"], model["num_classes"])
 net.load_state_dict(model["model_state_dict"])
 classes = model["classes"]
@@ -53,11 +54,14 @@ with mp_hands.Hands(
 
             # actual model inference
             curr_feature_vec = []
-            for lm in results.multi_hand_landmarks[0].landmark:
+            for ndx, lm in enumerate(results.multi_hand_landmarks[0].landmark):
                 curr_feature_vec.extend([lm.x, lm.y, lm.z])
+            features = np.array(curr_feature_vec)
+            curr_features = normalize(features)
+
 
             # flattened feature vec (ready to go in model)
-            x = torch.from_numpy(np.array(curr_feature_vec, dtype=np.float32)).unsqueeze(0)  # shape [1, 63]
+            x = torch.from_numpy(curr_features).unsqueeze(0).float()
 
             with torch.no_grad():
                 net.eval()

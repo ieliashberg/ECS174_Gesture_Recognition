@@ -10,7 +10,7 @@ mp_hands = mp.solutions.hands
 cap = cv2.VideoCapture(0)  # could be 2 or something else
 
 # write the header for the csv file (x0,y0,z0,x1,y1,z1...x20,y20,z20,label)
-csv_path = "static_dataset.csv"
+csv_path = "static_dataset2.csv"
 if not os.path.exists(csv_path):
     header = [f"{coord}{i}" for i in range(21) for coord in ["x", "y", "z"]] + ["label"]
     with open(csv_path, "w", newline="") as f:
@@ -74,8 +74,6 @@ with mp_hands.Hands(
         cv2.imshow("Hand Tracking", flipped_img)
         if key == ord("q"):
             break
-
-
 
 
 cap.release()
