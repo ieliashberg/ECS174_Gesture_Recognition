@@ -1,7 +1,5 @@
 import mediapipe as mp
-import cv2
 import csv
-import os
 import pandas as pd
 import numpy as np
 
