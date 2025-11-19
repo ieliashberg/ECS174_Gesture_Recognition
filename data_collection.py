@@ -57,7 +57,7 @@ with mp_hands.Hands(
                 for lm in results.multi_hand_landmarks[0].landmark:
                     row.extend([lm.x, lm.y, lm.z])
                 row.append(key_to_label[key])
-                with open("static_dataset.csv", "a", newline="") as f:
+                with open(csv_path, "a", newline="") as f:
                     writer = csv.writer(f)
                     writer.writerow(row)
                 print(f"Saved sample for {key_to_label[key]}")

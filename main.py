@@ -14,9 +14,9 @@ cap = cv2.VideoCapture(0)  # could be 2 or something else
 prev_time = time.perf_counter()  # for fps
 
 # define the model we will be using
-model = torch.load("trained_models/static_gesture_net_v1.pt", map_location="cpu")
+model = torch.load("traineD_models/static_gesture_net_v1.pt", map_location="cpu")
 net = StaticGestureNet(model["input_dim"], model["num_classes"])
-net.load_state_dict(model["model_state_dict"])
+net.load_state_dict(state_dict=model["model_state_dict"])
 classes = model["classes"]
 with mp_hands.Hands(
     model_complexity=0, min_detection_confidence=0.8, min_tracking_confidence=0.5, max_num_hands = 1
@@ -66,8 +66,14 @@ with mp_hands.Hands(
             with torch.no_grad():
                 net.eval()
                 outputs= net(x)
-                _, pred_ndx = torch.max(outputs, 1)
-                prediction = classes[pred_ndx.item()]
+                probs = torch.softmax(outputs, dim=1)
+
+                confidence, pred_ndx = torch.max(probs, 1)
+                conf_val = confidence.item()
+                if conf_val >= 0.9:
+                    prediction = classes[pred_ndx.item()]
+                else:
+                    prediction = None
 
         flipped_img = cv2.flip(image, 1)
 

@@ -9,9 +9,11 @@ import torch.optim as optim
 from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 from static_gesture_net import StaticGestureNet
+from utils import normalize_data_file
 
 
 def load_and_split(filename):
+    normalize_data_file(filename)
     df = pd.read_csv(filename)
     features = df.iloc[:, :-1].values.astype(np.float32)
     labels = df.iloc[:, -1].values  # currently still string labels
@@ -142,9 +144,35 @@ def train_model(
     plt.show()
     print(validation_accuracy)
 
+def test_model(features_test, labels_test):
+    test_ds = TensorDataset(
+        torch.from_numpy(features_test).float(), torch.from_numpy(labels_test).long()
+    )
+    test_loader = DataLoader(test_ds, batch_size=4, shuffle=True)
 
-# need to return the parameters of the model or save them somehow
+    device = torch.device(
+        "cuda" if torch.cuda.is_available() else "cpu"
+    )  # use GPU for training if available. Otherwise CPU
 
+    model = torch.load("static_gesture_net_v1.pt", map_location="cpu")
+    net = StaticGestureNet(model["input_dim"], model["num_classes"])
+    net.load_state_dict(state_dict=model["model_state_dict"])
+
+    num_test_correct = 0
+    num_total_test = 0
+    with torch.no_grad():
+        for X, y in test_loader:
+            net.eval()  # turing off batch norm and dropout for evaulation
+            X, y = X.to(device), y.to(
+                device
+            )  # move inputs and labels to the actual device (gpu if using)
+            outputs = net(X)  # get the 1d vector of likelihoods for each class
+            _, predicted = torch.max(
+                outputs, 1
+            )  # take the argmax of each class for each output and set that to predicted
+            num_test_correct += (predicted == y).sum().item()
+            num_total_test += len(y)
+    print(f"model test accuracy = {num_test_correct/num_total_test}")
 
 def main():
     (
@@ -155,7 +183,7 @@ def main():
         labels_validation,
         labels_test,
         encoder,
-    ) = load_and_split("static_dataset_copy.csv")
+    ) = load_and_split("datasets/static_dataset2.csv")
     train_model(
         features_train,
         features_validation,
@@ -163,6 +191,10 @@ def main():
         labels_validation,
         encoder,
         30,
+    )
+    test_model(
+        features_test,
+        labels_test
     )
 
 if __name__ == "__main__":
