@@ -183,7 +183,7 @@ def main():
         labels_validation,
         labels_test,
         encoder,
-    ) = load_and_split("datasets/static_dataset2.csv")
+    ) = load_and_split("datasets/static_dataset.csv")
     train_model(
         features_train,
         features_validation,
