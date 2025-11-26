@@ -14,7 +14,7 @@ cap = cv2.VideoCapture(0)  # could be 2 or something else
 prev_time = time.perf_counter()  # for fps
 
 # define the model we will be using
-model = torch.load("traineD_models/static_gesture_net_v1.pt", map_location="cpu")
+model = torch.load("traineD_models/static_gesture_net_v2.pt", map_location="cpu")
 net = StaticGestureNet(model["input_dim"], model["num_classes"])
 net.load_state_dict(state_dict=model["model_state_dict"])
 classes = model["classes"]
