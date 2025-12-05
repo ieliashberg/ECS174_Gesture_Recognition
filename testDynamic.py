@@ -9,14 +9,13 @@ import mediapipe as mp
 from dynamic_gesture_net import DynamicGestureNet
 from utils import normalize
 
-# ------------- Settings -------------
-MODEL_PATH = "trained_models\dynamic_gesture_net_v1.pt"  # your GRU checkpoint path
+MODEL_PATH = "trained_models\dynamic_gesture_net_best.pt"
 CAM_INDEX = 0
 WINDOW_SIZE = 30
 STRIDE = 15
-MIN_CONF = 0.85
+MIN_CONF = 0.70
 DRAW_LANDMARKS = True
-# Optional: map IPN codes => friendly labels
+
 IPN_DECODE = {
     "G01": "Swipe Left",
     "G02": "Swipe Right",
@@ -33,25 +32,22 @@ IPN_DECODE = {
     "G10": "Zoom in",
     "G11": "Zoom out",
 }
-# ------------------------------------
 
-def decode_ipn(lbl: str) -> str:
-    return IPN_DECODE.get(lbl, lbl)
+def decode_ipn(label: str) -> str:
+    return IPN_DECODE.get(label, label)
 
-def _normalize_63(vec63: np.ndarray) -> np.ndarray:
-    v = np.asarray(vec63, dtype=np.float32).reshape(1, -1)
+def _normalize_shape(newVect: np.ndarray) -> np.ndarray:
+    v = np.asarray(newVect, dtype=np.float32).reshape(1, -1)
     out = normalize(v)
     return out.astype(np.float32).reshape(-1)
 
 def build_feature_from_mphand(landmarks) -> np.ndarray:
-    """Flatten MediaPipe 21 landmarks -> (63,) [x0,y0,z0,...,x20,y20,z20]."""
     row = []
     for lm in landmarks.landmark:
         row.extend([lm.x, lm.y, lm.z])
     return np.asarray(row, dtype=np.float32)
 
 def main():
-    # ---------- Load GRU checkpoint ----------
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ckpt = torch.load(MODEL_PATH, map_location=device)
 
@@ -71,7 +67,6 @@ def main():
     net.load_state_dict(ckpt["model_state_dict"])
     net.eval()
 
-    # ---------- MediaPipe Hands ----------
     mp_drawing = mp.solutions.drawing_utils
     mp_styles  = mp.solutions.drawing_styles
     mp_hands   = mp.solutions.hands
@@ -83,14 +78,14 @@ def main():
 
     feat_window = deque(maxlen=WINDOW_SIZE)
     frame_count = 0
-    dyn_label_str = None
-    dyn_conf = 0.0
+    labelString = None
+    confidenceVal = 0.0
 
     prev_t = time.perf_counter()
 
     with mp_hands.Hands(
-        model_complexity=0,
-        min_detection_confidence=0.8,
+        model_complexity=1,
+        min_detection_confidence=0.5,
         min_tracking_confidence=0.5,
         max_num_hands=1
     ) as hands:
@@ -100,13 +95,12 @@ def main():
                 print("Ignoring empty camera frame.")
                 continue
 
-            # BGR -> RGB for MediaPipe
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             rgb.flags.writeable = False
             res = hands.process(rgb)
             rgb.flags.writeable = True
 
-            # Draw landmarks (optional)
+            #Draw landmarks
             bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
             if res.multi_hand_landmarks and DRAW_LANDMARKS:
                 mp_drawing.draw_landmarks(
@@ -117,51 +111,51 @@ def main():
                     mp_styles.get_default_hand_connections_style(),
                 )
 
-            # ---- Per-frame 63-D features ----
+            #matches collected hand landmarks to GRU desired resolution
             if res.multi_hand_landmarks:
-                vec63 = build_feature_from_mphand(res.multi_hand_landmarks[0])
-                vec63 = _normalize_63(vec63)
+                scaledResult = build_feature_from_mphand(res.multi_hand_landmarks[0])
+                scaledResult = _normalize_shape(scaledResult)
             else:
-                # If no detection: repeat last vector if available, otherwise zeros
+                #repeat last vector if available, otherwise zeros
                 if len(feat_window) > 0:
-                    vec63 = feat_window[-1].copy()
+                    scaledResult = feat_window[-1].copy()
                 else:
-                    vec63 = np.zeros(63, dtype=np.float32)
+                    scaledResult = np.zeros(63, dtype=np.float32)
 
-            feat_window.append(vec63)
+            feat_window.append(scaledResult)
 
-            # ---- Sliding-window GRU inference ----
+            #Send a sliding window of frames to the GRU
             frame_count += 1
             if len(feat_window) == WINDOW_SIZE and (frame_count % STRIDE == 0):
-                seq = np.stack(feat_window, axis=0).astype(np.float32)  # (T,63)
+                seq = np.stack(feat_window, axis=0).astype(np.float32)
                 if add_vel:
                     vel = np.diff(seq, axis=0, prepend=seq[:1]).astype(np.float32)
-                    seq = np.concatenate([seq, vel], axis=1).astype(np.float32)  # (T,126)
+                    seq = np.concatenate([seq, vel], axis=1).astype(np.float32)
 
-                x = torch.from_numpy(seq).unsqueeze(0).to(device)  # (1,T,D)
+                x = torch.from_numpy(seq).unsqueeze(0).to(device)
                 lengths = torch.tensor([seq.shape[0]], dtype=torch.long).to(device)
 
                 with torch.no_grad():
                     logits = net(x, lengths)
                     probs = torch.softmax(logits, dim=1)
                     conf, idx = torch.max(probs, dim=1)
-                    dyn_conf = float(conf.item())
+                    confidenceVal = float(conf.item())
                     pred_raw = classes[int(idx.item())]
-                    dyn_label_str = decode_ipn(pred_raw) if dyn_conf >= MIN_CONF else None
+                    labelString = decode_ipn(pred_raw) if confidenceVal >= MIN_CONF else None
 
-            # ---- UI overlays ----
-            disp = cv2.flip(bgr, 1)  # mirror for user
+            #Drawing hand landmarks
+            disp = cv2.flip(bgr, 1)
 
-            # FPS
+            # Drawing FPS
             now = time.perf_counter()
             fps = 1.0 / (now - prev_t) if now > prev_t else 0.0
             prev_t = now
             cv2.putText(disp, f"{fps:.1f} FPS", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3, cv2.LINE_AA)
 
-            # Dynamic label
-            if dyn_label_str:
-                cv2.putText(disp, f"Dynamic: {dyn_label_str} ({dyn_conf:.2f})", (10, 70),
+            #Drawing the label
+            if labelString:
+                cv2.putText(disp, f"Dynamic: {labelString} ({confidenceVal:.2f})", (10, 70),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 170, 0), 3, cv2.LINE_AA)
 
             cv2.imshow("Dynamic Gesture Detection (GRU)", disp)
