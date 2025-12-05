@@ -13,13 +13,15 @@ from ipn_dataset_util import NPZSequenceDatasetCPU, collate_np, augment_sequence
 from utils import normalize
 
 DATA_ROOT = Path("..\IPN\IPN_dynamic")
+BIDIR = True
 BATCH_SIZE = 32
-EPOCHS = 30
-LR = 0.001
+EPOCHS = 100
+LR = 0.0011
 ADD_VEL = True
-NUM_WORKERS = 4
+NUM_WORKERS = 6
 PERSISTENT = True
 PREFETCH = 2
+NORMALIZER = normalize #Or normalize
 
 def collate_np(batch):
     xs, ys, lens = zip(*batch)
@@ -38,7 +40,7 @@ def worker_init(_):
     #Redefined the worker init so windows doesnt go ballistic
     os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
 
-def load_and_split_npz(npz_root: Path, val_frac=0.15, test_frac=0.15, seed=1):
+def load_and_split_npz(npz_root: Path, val_frac=0.10, test_frac=0.10, seed=36):
     files = sorted(npz_root.glob("*.npz"))
     if not files:
         raise FileNotFoundError(f"No .npz files found in {npz_root}")
@@ -68,8 +70,8 @@ def train_model(X_train, y_train, X_val, y_val, encoder, num_epochs=EPOCHS):
     from torch.utils.data import DataLoader
     from dynamic_gesture_net import DynamicGestureNet
 
-    train_ds = NPZSequenceDatasetCPU(X_train, y_train, add_vel=ADD_VEL, normalizer=normalize, train = True, augmenter=augment_sequence)
-    val_ds   = NPZSequenceDatasetCPU(X_val,   y_val,   add_vel=ADD_VEL, normalizer=normalize, train=False, augmenter=None)
+    train_ds = NPZSequenceDatasetCPU(X_train, y_train, add_vel=ADD_VEL, normalizer=NORMALIZER, train = True, augmenter=augment_sequence)
+    val_ds   = NPZSequenceDatasetCPU(X_val,   y_val,   add_vel=ADD_VEL, normalizer=NORMALIZER, train=False, augmenter=None)
 
     pin_mem = torch.cuda.is_available()
 
@@ -93,7 +95,7 @@ def train_model(X_train, y_train, X_val, y_val, encoder, num_epochs=EPOCHS):
     input_dim   = 63 * (2 if ADD_VEL else 1)
     num_classes = len(encoder.classes_)
     net = DynamicGestureNet(input_dim=input_dim, num_classes=num_classes,
-                            hidden=128, layers=2, bidir=True, dropout=0.2).to(device)
+                            hidden=128, layers=2, bidir=BIDIR, dropout=0.3).to(device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(net.parameters(), lr=LR)
@@ -166,7 +168,7 @@ def train_model(X_train, y_train, X_val, y_val, encoder, num_epochs=EPOCHS):
         "classes": encoder.classes_.tolist(),
         "add_vel": ADD_VEL,
     }
-    torch.save(dynamicGRU, "dynamic_gesture_net_v3.pt")
+    torch.save(dynamicGRU, "dynamic_gesture_net_v7.pt")
 
     # Plot accuracies (same style)
     epochs = range(1, num_epochs + 1)
@@ -182,13 +184,13 @@ def train_model(X_train, y_train, X_val, y_val, encoder, num_epochs=EPOCHS):
 
     return training_accuracy, validation_accuracy
 
-def test_model(X_test, y_test, dynamic_GRU="dynamic_gesture_net_v3.pt"):
+def test_model(X_test, y_test, dynamic_GRU="dynamic_gesture_net_v7.pt"):
     # Import torch only inside function
     import torch
     from torch.utils.data import DataLoader
     from dynamic_gesture_net import DynamicGestureNet
 
-    test_ds = NPZSequenceDatasetCPU(X_test, y_test, add_vel=ADD_VEL, normalizer=normalize)
+    test_ds = NPZSequenceDatasetCPU(X_test, y_test, add_vel=ADD_VEL, normalizer=NORMALIZER)
 
     def _worker_init(_):
         os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
@@ -207,7 +209,7 @@ def test_model(X_test, y_test, dynamic_GRU="dynamic_gesture_net_v3.pt"):
     net = DynamicGestureNet(
         input_dim=savedGRU["input_dim"],
         num_classes=savedGRU["num_classes"],
-        hidden=128, layers=2, bidir=True, dropout=0.3
+        hidden=128, layers=2, bidir=BIDIR, dropout=0.3
     ).to(device)
     net.load_state_dict(savedGRU["model_state_dict"])
     net.eval()

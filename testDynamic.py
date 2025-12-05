@@ -9,16 +9,17 @@ import mediapipe as mp
 from dynamic_gesture_net import DynamicGestureNet
 from utils import normalize
 
-MODEL_PATH = "trained_models\dynamic_gesture_net_best.pt"
+MODEL_PATH = "trained_models\dynamic_gesture_net_best_v7.pt"
 CAM_INDEX = 0
 WINDOW_SIZE = 30
 STRIDE = 15
 MIN_CONF = 0.70
 DRAW_LANDMARKS = True
+NORMALIZER = normalize #OR normalize
 
 IPN_DECODE = {
-    "G01": "Swipe Left",
-    "G02": "Swipe Right",
+    "G01": "Click with one finger",
+    "G02": "Click with two fingers",
     "D0X": "no_gesture",
     "B0A": "Pointing with one finger",
     "B0B": "Pointing with two fingers",
@@ -38,7 +39,10 @@ def decode_ipn(label: str) -> str:
 
 def _normalize_shape(newVect: np.ndarray) -> np.ndarray:
     v = np.asarray(newVect, dtype=np.float32).reshape(1, -1)
-    out = normalize(v)
+    if NORMALIZER:
+        out = normalize(v)
+    else:
+        out = v
     return out.astype(np.float32).reshape(-1)
 
 def build_feature_from_mphand(landmarks) -> np.ndarray:
@@ -49,12 +53,12 @@ def build_feature_from_mphand(landmarks) -> np.ndarray:
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    ckpt = torch.load(MODEL_PATH, map_location=device)
+    loadedModel = torch.load(MODEL_PATH, map_location=device)
 
-    input_dim   = int(ckpt["input_dim"])
-    num_classes = int(ckpt["num_classes"])
-    classes     = ckpt.get("classes", [str(i) for i in range(num_classes)])
-    add_vel     = bool(ckpt.get("add_vel", False))
+    input_dim   = int(loadedModel["input_dim"])
+    num_classes = int(loadedModel["num_classes"])
+    classes     = loadedModel.get("classes", [str(i) for i in range(num_classes)])
+    add_vel     = bool(loadedModel.get("add_vel", False))
 
     net = DynamicGestureNet(
         input_dim=input_dim,
@@ -64,7 +68,7 @@ def main():
         bidir=True,
         dropout=0.0
     ).to(device)
-    net.load_state_dict(ckpt["model_state_dict"])
+    net.load_state_dict(loadedModel["model_state_dict"])
     net.eval()
 
     mp_drawing = mp.solutions.drawing_utils
