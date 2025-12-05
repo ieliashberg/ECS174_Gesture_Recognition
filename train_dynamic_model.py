@@ -9,17 +9,17 @@ import matplotlib.pyplot as plt
 
 import time
 
-from ipn_dataset_util import NPZSequenceDatasetCPU
+from ipn_dataset_util import NPZSequenceDatasetCPU, collate_np, augment_sequence
 from utils import normalize
 
-NPZ_ROOT    = Path("datasets\IPN_dynamic")
-BATCH_SIZE  = 32
-EPOCHS      = 30
-LR          = 0.001
-ADD_VEL     = True
+DATA_ROOT = Path("..\IPN\IPN_dynamic")
+BATCH_SIZE = 32
+EPOCHS = 30
+LR = 0.001
+ADD_VEL = True
 NUM_WORKERS = 4
-PERSISTENT  = True
-PREFETCH    = 2
+PERSISTENT = True
+PREFETCH = 2
 
 def collate_np(batch):
     xs, ys, lens = zip(*batch)
@@ -35,15 +35,14 @@ def collate_np(batch):
     return x_pad, lens, y
 
 def worker_init(_):
-    # Keep CUDA out of worker processes (belt-and-suspenders on Windows)
+    #Redefined the worker init so windows doesnt go ballistic
     os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
 
-def load_and_split_npz(npz_root: Path, val_frac=0.15, test_frac=0.15, seed=42):
+def load_and_split_npz(npz_root: Path, val_frac=0.15, test_frac=0.15, seed=1):
     files = sorted(npz_root.glob("*.npz"))
     if not files:
         raise FileNotFoundError(f"No .npz files found in {npz_root}")
 
-    # Read labels without loading arrays into RAM
     labels = []
     for f in files:
         with np.load(f) as npz:
@@ -62,15 +61,15 @@ def load_and_split_npz(npz_root: Path, val_frac=0.15, test_frac=0.15, seed=42):
     return X_train, y_train, X_val, y_val, X_test, y_test, encoder
 
 def train_model(X_train, y_train, X_val, y_val, encoder, num_epochs=EPOCHS):
-    
+    #Imports are here for workers (windows gets mad if they aren't)
     import torch
     import torch.nn as nn
     import torch.optim as optim
     from torch.utils.data import DataLoader
     from dynamic_gesture_net import DynamicGestureNet
 
-    train_ds = NPZSequenceDatasetCPU(X_train, y_train, add_vel=ADD_VEL, normalizer=normalize)
-    val_ds   = NPZSequenceDatasetCPU(X_val,   y_val,   add_vel=ADD_VEL, normalizer=normalize)
+    train_ds = NPZSequenceDatasetCPU(X_train, y_train, add_vel=ADD_VEL, normalizer=normalize, train = True, augmenter=augment_sequence)
+    val_ds   = NPZSequenceDatasetCPU(X_val,   y_val,   add_vel=ADD_VEL, normalizer=normalize, train=False, augmenter=None)
 
     pin_mem = torch.cuda.is_available()
 
@@ -105,11 +104,10 @@ def train_model(X_train, y_train, X_val, y_val, encoder, num_epochs=EPOCHS):
         progress_bar = tqdm(total=len(train_loader), desc=f"epoch {epoch+1}", unit="batch")
         start = time.time()
 
-        # ---- train ----
+        #Train from batch
         net.train()
         correct, total = 0, 0
         for X_np, lengths_np, y_np in train_loader:
-            # Convert NumPy -> torch on the main process
             X = torch.from_numpy(X_np).to(device, non_blocking=pin_mem)
             lengths = torch.from_numpy(lengths_np).to(device, non_blocking=pin_mem)
             y = torch.from_numpy(y_np).to(device, non_blocking=pin_mem)
@@ -127,7 +125,7 @@ def train_model(X_train, y_train, X_val, y_val, encoder, num_epochs=EPOCHS):
             progress_bar.update(1)
         training_accuracy.append(correct / total if total else 0.0)
 
-        # ---- validate ----
+        #Validation
         net.eval()
         correct, total = 0, 0
         with torch.no_grad():
@@ -142,19 +140,33 @@ def train_model(X_train, y_train, X_val, y_val, encoder, num_epochs=EPOCHS):
                 total   += y.size(0)
         validation_accuracy.append(correct / total if total else 0.0)
 
+        best_val = 0.0
+        patience, bad = 6, 0
+        val_acc = validation_accuracy[-1] #checks the most recent validation accuracy for early stopping
+        if val_acc > best_val:
+            best_val = val_acc; bad = 0
+            torch.save({"model_state_dict": net.state_dict(),
+                        "input_dim": input_dim, "num_classes": num_classes,
+                        "classes": encoder.classes_.tolist(), "add_vel": ADD_VEL},
+                    "dynamic_gesture_net_best.pt")
+        else:
+            bad += 1
+            if bad >= patience:
+                print("Early stop.")
+                break
+
         progress_bar.close()
         end = time.time()
         print(f"epoch {epoch+1:02d} | train_acc={training_accuracy[-1]:.3f} | val_acc={validation_accuracy[-1]:.3f} | time={end - start}")
 
-    # Save checkpoint in same style as your static script
-    ckpt = {
+    dynamicGRU = {
         "model_state_dict": net.state_dict(),
         "input_dim": input_dim,
         "num_classes": num_classes,
         "classes": encoder.classes_.tolist(),
         "add_vel": ADD_VEL,
     }
-    torch.save(ckpt, "dynamic_gesture_net_v1.pt")
+    torch.save(dynamicGRU, "dynamic_gesture_net_v3.pt")
 
     # Plot accuracies (same style)
     epochs = range(1, num_epochs + 1)
@@ -170,7 +182,7 @@ def train_model(X_train, y_train, X_val, y_val, encoder, num_epochs=EPOCHS):
 
     return training_accuracy, validation_accuracy
 
-def test_model(X_test, y_test, ckpt_path="dynamic_gesture_net_v1.pt"):
+def test_model(X_test, y_test, dynamic_GRU="dynamic_gesture_net_v3.pt"):
     # Import torch only inside function
     import torch
     from torch.utils.data import DataLoader
@@ -186,18 +198,18 @@ def test_model(X_test, y_test, ckpt_path="dynamic_gesture_net_v1.pt"):
         test_ds, batch_size=BATCH_SIZE, shuffle=False,
         collate_fn=collate_np, num_workers=NUM_WORKERS,
         persistent_workers=PERSISTENT, pin_memory=pin_mem,
-        prefetch_factor=PREFETCH, worker_init_fn=_worker_init
+        prefetch_factor=PREFETCH, worker_init_fn=worker_init
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    ckpt = torch.load(ckpt_path, map_location=device)
+    savedGRU = torch.load(dynamic_GRU, map_location=device)
 
     net = DynamicGestureNet(
-        input_dim=ckpt["input_dim"],
-        num_classes=ckpt["num_classes"],
-        hidden=128, layers=2, bidir=True, dropout=0.2
+        input_dim=savedGRU["input_dim"],
+        num_classes=savedGRU["num_classes"],
+        hidden=128, layers=2, bidir=True, dropout=0.3
     ).to(device)
-    net.load_state_dict(ckpt["model_state_dict"])
+    net.load_state_dict(savedGRU["model_state_dict"])
     net.eval()
 
     correct, total = 0, 0
@@ -214,7 +226,7 @@ def test_model(X_test, y_test, ckpt_path="dynamic_gesture_net_v1.pt"):
     print(f"model test accuracy = {correct/total:.4f}")
 
 def main():
-    X_train, y_train, X_val, y_val, X_test, y_test, encoder = load_and_split_npz(NPZ_ROOT)
+    X_train, y_train, X_val, y_val, X_test, y_test, encoder = load_and_split_npz(DATA_ROOT)
     train_model(X_train, y_train, X_val, y_val, encoder, num_epochs=EPOCHS)
     test_model(X_test, y_test)
 
