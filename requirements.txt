@@ -9,3 +9,7 @@ torch==2.5.1
 # Nice-to-haves for data wrangling/plots (optional)
 pandas>=2.2
 matplotlib>=3.8
+
+# Training utilities
+scikit-learn>=1.3
+tqdm>=4.66

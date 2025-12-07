@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
-from static_gesture_net import StaticGestureNet
+from model_definitions.static_gesture_net import StaticGestureNet
 from utils import normalize_data_file
 
 
