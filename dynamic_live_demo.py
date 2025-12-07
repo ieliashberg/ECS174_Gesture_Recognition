@@ -14,7 +14,7 @@ CAM_INDEX = 0
 
 # ===== REAL-TIME CONTROL PARAMETERS =====
 WINDOW_SIZE      = 45    # reduced from 65 → MUCH lower latency
-STRIDE           = 3     # process every 3rd frame
+STRIDE           = 2     # process every 3rd frame
 MIN_CONF         = 0.70  # require high confidence
 MOTION_THRESHOLD = 0.025 # minimal hand motion to allow prediction
 COOLDOWN         = 3    # frames to silence after gesture detection
