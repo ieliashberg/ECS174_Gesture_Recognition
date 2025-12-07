@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from utils.ipn_dataset_util import NPZSequenceDatasetCPU, augment_sequence
 
-DATA_ROOT   = Path("../datasets/IPN/IPN_dynamic_npz_normalized")   # change if your normalized folder differs
+DATA_ROOT   = Path("../datasets/IPN/IPN_dynamic_npz_normalized")
 BATCH_SIZE  = 32
 EPOCHS      = 30
 LR          = 0.001
