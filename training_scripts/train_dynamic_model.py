@@ -13,14 +13,16 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from utils.ipn_dataset_util import NPZSequenceDatasetCPU, augment_sequence
 
-DATA_ROOT   = Path("../datasets/IPN/IPN_dynamic_npz_normalized")
+DATA_ROOT   = Path("datasets/IPN/IPN_dynamic_npz_normalized")   # change if your normalized folder differs
+SAVE_DIR    = Path("dynamic_gesture_net_v9.pt")
 BATCH_SIZE  = 32
 EPOCHS      = 30
 LR          = 0.001
 ADD_VEL     = True
-NUM_WORKERS = 4
+NUM_WORKERS = 6
 PERSISTENT  = True
 PREFETCH    = 2
+SPLIT       = 0.2
 
 
 # --------------------------------------------------------------------------- #
@@ -63,7 +65,7 @@ def collate_torch(batch):
 # DATA LOADING / SPLIT
 # --------------------------------------------------------------------------- #
 
-def load_and_split_npz(npz_root: Path, val_frac=0.15, test_frac=0.15, seed=1):
+def load_and_split_npz(npz_root: Path, val_frac=(SPLIT/2), test_frac=(SPLIT/2), seed=1):
     files = sorted(npz_root.glob("*.npz"))
     if not files:
         raise FileNotFoundError(f"No .npz files found in {npz_root}")
@@ -96,7 +98,7 @@ def train_model(X_train, y_train, X_val, y_val, encoder, num_epochs=EPOCHS):
     import torch.nn as nn
     import torch.optim as optim
     from torch.utils.data import DataLoader
-    from model_definitions.dynamic_gesture_netv2 import DynamicGestureNet
+    from model_definitions.dynamic_gesture_net_with_attention import DynamicGestureNet #Remember to change test model too
 
     # Datasets (already-normalized .npz):
     train_ds = NPZSequenceDatasetCPU(
@@ -161,7 +163,7 @@ def train_model(X_train, y_train, X_val, y_val, encoder, num_epochs=EPOCHS):
     validation_accuracy = []
 
     best_val = -1.0
-    patience = 6
+    patience = 10
     bad = 0
 
     for epoch in range(num_epochs):
@@ -246,7 +248,7 @@ def train_model(X_train, y_train, X_val, y_val, encoder, num_epochs=EPOCHS):
         "classes": encoder.classes_.tolist(),
         "add_vel": ADD_VEL,
     }
-    torch.save(dynamicGRU, "dynamic_gesture_net_v3.pt")
+    torch.save(dynamicGRU, SAVE_DIR)
 
     # Plot accuracies
     epochs = range(1, len(training_accuracy) + 1)
@@ -267,10 +269,11 @@ def train_model(X_train, y_train, X_val, y_val, encoder, num_epochs=EPOCHS):
 # TEST
 # --------------------------------------------------------------------------- #
 
-def test_model(X_test, y_test, dynamic_GRU="dynamic_gesture_net_best.pt"):
+def test_model(X_test, y_test, dynamic_GRU=SAVE_DIR):
     import torch
     from torch.utils.data import DataLoader
-    from model_definitions.dynamic_gesture_net import DynamicGestureNet
+    from model_definitions.dynamic_gesture_net_with_attention import DynamicGestureNet #<<-------------------------------------------------
+    '''Make sure to change this load to the same model used for training or it will throw an error in net.load_state_dict'''
 
     test_ds = NPZSequenceDatasetCPU(X_test, y_test, add_vel=ADD_VEL, train=False, augmenter=None)
 

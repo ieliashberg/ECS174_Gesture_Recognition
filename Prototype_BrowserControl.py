@@ -15,7 +15,7 @@ import torch
 import pyautogui
 import mediapipe as mp
 
-from static_gesture_net import StaticGestureNet
+from model_definitions.static_gesture_net import StaticGestureNet
 from utils import normalize
 
 NET_PATH = "trained_models/static_gesture_net_v3.pt" #remember to change the \
