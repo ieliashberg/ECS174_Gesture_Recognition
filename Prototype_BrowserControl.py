@@ -29,18 +29,18 @@ REPEAT_EVERY  = 1.0
 REPEATABLE = {"like", "dislike", "one", "peace", "three",}
 
 KEYBINDINGS = {
-    "like":              lambda: pyautogui.scroll(+600),
-    "dislike":           lambda: pyautogui.scroll(-600),
-    "one":               lambda: pyautogui.press("tab"),
-    "peace":             lambda: pyautogui.hotkey("shift", "tab"),
-    "three":             lambda: pyautogui.hotkey("ctrl", "tab"),
-    "fist":             lambda: pyautogui.hotkey("ctrl", "c"),
-    "palm":             lambda: pyautogui.hotkey("ctrl", "v"),
-    "stop":              lambda: pyautogui.press("space"),
-    "ok":                lambda: pyautogui.press("enter"),
-    "rock":              lambda: pyautogui.hotkey("ctrl", "r"),
-    "mute":              lambda: pyautogui.hotkey("alt", "left"),
-    "call":              lambda: pyautogui.hotkey("alt", "right"),
+    "like": lambda: pyautogui.scroll(+600),
+    "dislike": lambda: pyautogui.scroll(-600),
+    "one": lambda: pyautogui.press("tab"),
+    "peace": lambda: pyautogui.hotkey("shift", "tab"),
+    "three": lambda: pyautogui.hotkey("ctrl", "tab"),
+    "fist": lambda: pyautogui.hotkey("ctrl", "c"),
+    "palm": lambda: pyautogui.hotkey("ctrl", "v"),
+    "stop": lambda: pyautogui.press("space"),
+    "ok": lambda: pyautogui.press("enter"),
+    "rock": lambda: pyautogui.hotkey("ctrl", "r"),
+    "mute": lambda: pyautogui.hotkey("alt", "left"),
+    "call": lambda: pyautogui.hotkey("alt", "right"),
 }
 
 #enable the key bindings
