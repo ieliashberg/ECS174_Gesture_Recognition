@@ -14,15 +14,15 @@ sys.path.insert(0, str(ROOT))
 from utils.ipn_dataset_util import NPZSequenceDatasetCPU, augment_sequence
 
 DATA_ROOT   = Path("datasets/IPN/IPN_dynamic_npz_normalized")   # change if your normalized folder differs
-SAVE_DIR    = Path("dynamic_gesture_net_v9.pt")
+SAVE_DIR    = Path("dynamic_gesture_net_v11.pt")
 BATCH_SIZE  = 32
-EPOCHS      = 30
+EPOCHS      = 50
 LR          = 0.001
-ADD_VEL     = True
+ADD_VEL     = False
 NUM_WORKERS = 6
 PERSISTENT  = True
 PREFETCH    = 2
-SPLIT       = 0.2
+SPLIT       = 0.3
 
 
 # --------------------------------------------------------------------------- #

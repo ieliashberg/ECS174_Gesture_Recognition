@@ -6,18 +6,18 @@ import torch
 from collections import deque
 import mediapipe as mp
 
-from model_definitions.dynamic_gesture_netv2 import DynamicGestureNet
+from model_definitions.dynamic_gesture_net_with_attention import DynamicGestureNet
 from utils.utils import normalize
 
-MODEL_PATH = "trained_models/dynamic_gesture_netv2_best.pt"
+MODEL_PATH = "trained_models\dynamic_gesture_net_v8.pt"
 CAM_INDEX = 0
 
 # ===== REAL-TIME CONTROL PARAMETERS =====
-WINDOW_SIZE      = 45    # reduced from 65 → MUCH lower latency
-STRIDE           = 2     # process every 3rd frame
+WINDOW_SIZE      = 25    # reduced from 65 → MUCH lower latency
+STRIDE           = 1     # process every 3rd frame
 MIN_CONF         = 0.70  # require high confidence
 MOTION_THRESHOLD = 0.025 # minimal hand motion to allow prediction
-COOLDOWN         = 3    # frames to silence after gesture detection
+COOLDOWN         = 0    # frames to silence after gesture detection
 RECENT_MOTION_T  = 3     # how many latest frames to compute motion over
 DRAW_LANDMARKS   = True
 
@@ -72,6 +72,7 @@ def main():
     frame_idx   = 0
     cooldown    = 0
     last_pred   = None
+    pred_Display= None
     prev_t      = time.perf_counter()
 
     with mp_hands.Hands(model_complexity=1, max_num_hands=1,
@@ -131,7 +132,7 @@ def main():
                 if conf >= MIN_CONF and motion >= MOTION_THRESHOLD:
                     last_pred = decode(pred)
                     cooldown = COOLDOWN               # freeze output
-                    feat_window.clear()               # 💥 flush gesture history
+                    feat_window.clear()               # flush gesture history
                 else:
                     last_pred = None
 
@@ -149,7 +150,9 @@ def main():
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 3)
 
             if last_pred:
-                cv2.putText(disp, f"{last_pred}", (10, 70),
+                pred_Display = last_pred
+            if pred_Display:
+                cv2.putText(disp, f"{pred_Display}", (10, 70),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0,200,0), 3)
 
             cv2.imshow("Dynamic Gesture Detection", disp)
