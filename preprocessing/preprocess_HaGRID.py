@@ -9,7 +9,6 @@ import time
 #   Store the landmarks in a csv based on their label
 #some images won't be able to find hand landmarks, I can just return none and store no image
 
-#Root directories:
 IMG_ROOT = Path("..\HaGRID\hagrid-sample-30k-384p\hagrid_30k")
 ANN_ROOT = Path("..\HaGRID\hagrid-sample-30k-384p\hagrid_ann_train_val")
 OUT_CSV = Path("datasets\hagrid_static_dataset.csv")
@@ -18,7 +17,7 @@ OUT_CSV = Path("datasets\hagrid_static_dataset.csv")
 uuid_to_labels: dict[str, list] = {}
 
 def _add_aliases(key: str, labels: list):
-    # Store multiple keys so lookups succeed regardless of how the JSON keyed it
+    #Store multiple keys so lookups succeed regardless of how the JSON keyed it
     uuid_to_labels[key] = labels
     uuid_to_labels[key.lower()] = labels
     stem = Path(key).stem
@@ -27,7 +26,7 @@ def _add_aliases(key: str, labels: list):
 
 for j in sorted(ANN_ROOT.glob("*.json")):
     with j.open("r", encoding="utf-8") as f:
-        data = json.load(f)  # {uuid: {"labels":[...], ...}}
+        data = json.load(f)
     for key, rec in data.items():
         _add_aliases(key, rec.get("labels", []))
 
@@ -56,7 +55,7 @@ hands = mp.solutions.hands.Hands(
 )
 
 image_files = list(IMG_ROOT.rglob("*"))
-image_files = [p for p in image_files
+image_files = [p for p in image_files 
                if p.is_file() and p.suffix.lower() in (".jpg", ".jpeg")]
 
 print(f"Found {len(image_files)} image files under {IMG_ROOT}")

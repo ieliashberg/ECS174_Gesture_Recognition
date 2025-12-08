@@ -7,9 +7,10 @@ mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 mp_hands = mp.solutions.hands
 
-cap = cv2.VideoCapture(0)  # could be 2 or something else
+cap = cv2.VideoCapture(0)
 
-# write the header for the csv file (x0,y0,z0,x1,y1,z1...x20,y20,z20,label)
+#CSVs should have a structure like this: (x0,y0,z0,x1,y1,z1...x20,y20,z20,label)
+#So we write this as the head of the csv file
 csv_path = "static_dataset.csv"
 if not os.path.exists(csv_path):
     header = [f"{coord}{i}" for i in range(21) for coord in ["x", "y", "z"]] + ["label"]
@@ -26,7 +27,7 @@ key_to_label = {
 with mp_hands.Hands(
     model_complexity=0, min_detection_confidence=0.8, min_tracking_confidence=0.5, max_num_hands = 1
 ) as hands:
-    while cap.isOpened():  # While capturin from the video
+    while cap.isOpened():
         success, frame = cap.read()
         if not success:
             print("Ignoring empty camera frame.")
@@ -34,15 +35,15 @@ with mp_hands.Hands(
         key = cv2.waitKey(1) & 0xFF
         image = cv2.cvtColor(
             frame, cv2.COLOR_BGR2RGB
-        )  # convert default from open cv (BGR) to RGB (which is what mediapipe needs)
+        )
 
-        image.flags.writeable = False  # for numpy arrays, we don't want to be able to change the actual array (setting to False) (speed up)
-        results = hands.process(image)  # process the image
-        image.flags.writeable = True  # changing back to true if we want to annotate the image
+        image.flags.writeable = False
+        results = hands.process(image)
+        image.flags.writeable = True
 
         image = cv2.cvtColor(
             image, cv2.COLOR_RGB2BGR
-        )  # need to convert back to BGR default for open cv to display
+        )
         if results.multi_hand_landmarks:
             mp_drawing.draw_landmarks(
                 image,
@@ -51,7 +52,6 @@ with mp_hands.Hands(
                 mp_drawing_styles.get_default_hand_landmarks_style(),
                 mp_drawing_styles.get_default_hand_connections_style(),
             )
-            # if the key pressed corresponds to a labeled gesture, add it to the dataset
             if key in key_to_label:
                 row = []
                 for lm in results.multi_hand_landmarks[0].landmark:
@@ -65,7 +65,6 @@ with mp_hands.Hands(
 
         flipped_img = cv2.flip(image, 1)
 
-        # write the label on the screen for visual feedback
         current_label = key_to_label.get(key, "")
         if current_label:
             cv2.putText(flipped_img, f"Label: {current_label}", (30, 50),

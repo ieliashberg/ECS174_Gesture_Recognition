@@ -4,11 +4,11 @@ import pandas as pd
 from tqdm import tqdm
 
 ORIG_DIR = "../../datasets/IPN/original_videos"
-CLIP_DIR = "../../datasets/IPN/clip_frames"  # main directory for all clip subdirs
+CLIP_DIR = "../../datasets/IPN/clip_frames"
 CLASSES_CSV = "../../datasets/IPN/classIdx.txt"
 ANNOT_CSV = "../../datasets/IPN/Annot_List.txt"
 
-# Load class labels
+#Load Classes
 class_df = pd.read_csv(CLASSES_CSV)
 id_to_label = dict(zip(class_df.id, class_df.label))
 
@@ -30,7 +30,7 @@ def open_video(video_file):
     global current_video, cap, current_frame
 
     if current_video == video_file:
-        return  # already opened
+        return
 
     if cap is not None:
         cap.release()
@@ -42,7 +42,7 @@ def open_video(video_file):
 
 
 def fast_forward_to(frame_idx):
-    """Decode frames until we reach the requested start."""
+    #Decode frames until we reach the start index
     global current_frame, cap
 
     while current_frame < frame_idx:
@@ -53,25 +53,16 @@ def fast_forward_to(frame_idx):
 
 
 def save_clip_frames(video_file, class_label, clip_name, start, end):
-    """
-    Each clip gets its own directory:
-    clip_frames/<clip_name>/frame_00000.jpg
-    """
     global cap, current_frame
 
     clip_dir = os.path.join(CLIP_DIR, clip_name)
 
-    # -----------------------------
-    # NEW: SKIP IF CLIP ALREADY EXISTS
-    # -----------------------------
     if os.path.exists(clip_dir):
-        # print(f"Skipping existing clip: {clip_name}")  # optional
+        #print(f"Skipping existing clip: {clip_name}")
         return
 
-    # Only open video once unless switching files
     open_video(video_file)
 
-    # If we already passed this start, reset the video
     if current_frame > start:
         cap.release()
         open_video(video_file)
@@ -98,15 +89,13 @@ for _, row in tqdm(annot_df.iterrows(), total=len(annot_df), desc="Clips process
     video = row.video
     class_label = id_to_label[row.id]
 
-    # Convert to 0-based frame indexing
+    #Sometimes indexes are not 0 base so we have to convert here to make sure
     start, end = row.t_start - 1, row.t_end - 1
-
-    # Clip directory will uniquely identify video + gesture + range
+    
     clip_name = f"{video}_{row.label}_{start}_{end}"
 
     save_clip_frames(video, class_label, clip_name, start, end)
-
-# Cleanup last video
+    
 if cap is not None:
     cap.release()
 

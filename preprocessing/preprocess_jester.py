@@ -1,10 +1,9 @@
 import os
 
-# ---- must be before importing mediapipe ----
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"   # 3 = ERROR only
-os.environ["GLOG_minloglevel"] = "3"       # 3 = ERROR only
-os.environ["MEDIAPIPE_LOG_LEVEL"] = "2"    # 2 = ERROR
-os.environ["MEDIAPIPE_DISABLE_GPU"] = "1"  # <-- required to avoid GPU in subprocesses on macOS
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["GLOG_minloglevel"] = "3"
+os.environ["MEDIAPIPE_LOG_LEVEL"] = "2"
+os.environ["MEDIAPIPE_DISABLE_GPU"] = "1" 
 
 import sys
 import csv
@@ -17,9 +16,6 @@ from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 from utils import normalize
 
-# ----------------------
-# CONFIG
-# ----------------------
 MIN_FRAMES = 8
 
 BASE_DATA_DIR = Path("datasets/jester/20bn-jester-v1")
@@ -36,10 +32,6 @@ def _suppress_cpp_logs():
     devnull = open(os.devnull, "w")
     os.dup2(devnull.fileno(), 2)
 
-
-# ----------------------
-# LANDMARK EXTRACTION
-# ----------------------
 def extract_landmarks(image, hands):
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     results = hands.process(image_rgb)
@@ -55,10 +47,6 @@ def extract_landmarks(image, hands):
 
     return normalize(features)
 
-
-# ----------------------
-# PROCESS SINGLE VIDEO
-# ----------------------
 def preprocess_vid(args):
     video_dir, split = args
     video_dir = Path(video_dir)
@@ -93,13 +81,8 @@ def preprocess_vid(args):
         out_path.parent.mkdir(parents=True, exist_ok=True)
         np.save(out_path, np.array(sequence))
 
-
-# ----------------------
-# MULTIPROCESSING DRIVER
-# ----------------------
 def preprocess_data_parallel(split: str, labels_csv: Path, limit=None):
 
-    # 1. Load labeled video IDs
     labeled_ids = []
     with open(labels_csv, "r") as f:
         reader = csv.reader(f, delimiter=";")
@@ -110,13 +93,11 @@ def preprocess_data_parallel(split: str, labels_csv: Path, limit=None):
 
     print(f"Found {len(labeled_ids)} labeled videos in: {labels_csv}")
 
-    # 2. Find already processed videos
     processed_dir = PROCESSED_DIR / split
     processed_dir.mkdir(parents=True, exist_ok=True)
     existing_files = {p.stem for p in processed_dir.glob("*.npy")}
     print(f"Found {len(existing_files)} already processed videos.")
 
-    # 3. Compute missing IDs
     missing_ids = [vid for vid in labeled_ids if vid not in existing_files]
     print(f"{len(missing_ids)} videos still need processing.")
 
@@ -124,25 +105,18 @@ def preprocess_data_parallel(split: str, labels_csv: Path, limit=None):
         print("Nothing to do. All videos processed.")
         return
 
-    # 4. Build paths list
     video_dirs = [BASE_DATA_DIR / vid for vid in missing_ids if (BASE_DATA_DIR / vid).exists()]
     print(f"Processing {len(video_dirs)} videos...\n")
 
-    # 5. Multiprocessing setup
     n_workers = max(cpu_count() - 1, 1)
     print(f"Using {n_workers} worker processes.")
 
     args = [(str(v), split) for v in video_dirs]
 
-    # 6. Run multiprocessing with progress bar
     with Pool(n_workers) as pool:
         for _ in tqdm(pool.imap_unordered(preprocess_vid, args), total=len(args)):
             pass
 
-
-# ----------------------
-# MAIN
-# ----------------------
 if __name__ == "__main__":
     start = time.time()
 

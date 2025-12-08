@@ -2,9 +2,6 @@ import csv
 import numpy as np
 from pathlib import Path
 
-# -------------------------
-# CONFIG
-# -------------------------
 PROCESSED_DIR = Path("datasets/jester/processed")
 OUTPUT_DIR = Path("datasets/jester/processed_npz")
 
@@ -42,9 +39,7 @@ def load_video_to_label_map(csv_path: Path):
     return mapping
 
 
-def convert_split(split_name: str,
-                  video_to_label: dict,
-                  gesture_to_id: dict):
+def convert_split(split_name: str, video_to_label: dict, gesture_to_id: dict):
     """
     Convert .npy files in datasets/jester/processed/<split_name>/
     into .npz files in datasets/jester/processed_npz/<split_name>/,
@@ -62,27 +57,27 @@ def convert_split(split_name: str,
     skipped_unknown_gesture = 0
 
     for npy_path in npy_files:
-        video_id = npy_path.stem  # e.g., "34870"
+        video_id = npy_path.stem
 
-        # Look up gesture name
+        #Look up gesture name
         gesture = video_to_label.get(video_id)
         if gesture is None:
             skipped_no_label += 1
             print(f"[WARN] No label found for video_id={video_id} in split={split_name}, skipping.")
             continue
 
-        # Look up label id
+        #Look up label id
         label_id = gesture_to_id.get(gesture)
         if label_id is None:
             skipped_unknown_gesture += 1
             print(f"[WARN] Gesture '{gesture}' not in labels list for video_id={video_id}, skipping.")
             continue
 
-        # Load sequence
-        sequence = np.load(npy_path)  # shape (T, 63)
+        #Load sequence
+        sequence = np.load(npy_path)
         sequence = sequence.astype(np.float32)
 
-        # Save as npz with metadata
+        #Save as npz with metadata
         out_path = output_dir / f"{video_id}.npz"
         np.savez(
             out_path,
@@ -100,15 +95,12 @@ def convert_split(split_name: str,
 
 
 def main():
-    # Load master label list and mapping
     labels, gesture_to_id = load_all_labels(LABELS_TXT)
     print(f"Loaded {len(labels)} labels from {LABELS_TXT}")
 
-    # Load per-split maps from video_id -> gesture name
     train_video_to_label = load_video_to_label_map(TRAIN_LABELS_CSV)
     valid_video_to_label = load_video_to_label_map(VALID_LABELS_CSV)
 
-    # Convert each split separately
     convert_split("train", train_video_to_label, gesture_to_id)
     convert_split("validation", valid_video_to_label, gesture_to_id)
 
