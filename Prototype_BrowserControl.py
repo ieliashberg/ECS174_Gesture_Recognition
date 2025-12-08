@@ -24,7 +24,7 @@ CONF_MIN = 0.85 #sometimes the model will switch to a different gesture for a fr
 SMOOTH_K = 7 #This number is the required majority vote for a gesture to be to be registered (in order to always have a majority keep this number odd)
 DRAW_LANDMARKS = True
 
-HOLD_SEC      = 2.0
+HOLD_SEC      = 1.0
 REPEAT_EVERY  = 1.0
 REPEATABLE = {"like", "dislike", "one", "peace", "three",}
 
