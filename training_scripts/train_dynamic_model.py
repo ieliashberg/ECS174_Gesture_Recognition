@@ -244,7 +244,7 @@ def train_model(X_train, y_train, X_val, y_val, encoder, num_epochs=EPOCHS):
 def test_model(X_test, y_test, dynamic_GRU=SAVE_DIR):
     import torch
     from torch.utils.data import DataLoader
-    from model_definitions.dynamic_gesture_net_with_attention import DynamicGestureNet #<<-------------------------------------------------
+    from model_definitions.dynamic_gesture_net_with_attention import DynamicGestureNet #<<----ILAN---------------------------------------
     '''Make sure to change this load to the same model used for training or it will throw an error in net.load_state_dict'''
 
     test_ds = NPZSequenceDatasetCPU(X_test, y_test, add_vel=ADD_VEL, train=False, augmenter=None)
