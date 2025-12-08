@@ -23,19 +23,19 @@ def count_each_label(filename):
 def make_translation_invariant(features):
     features = features.astype(float)
 
-    # x columns: 0, 3, 6, ...
+    #Columns
     xs = np.arange(0, features.shape[1], 3)
     ys = xs + 1
     zs = xs + 2
 
-    # subtract joint 0's coordinates
+    #subtract wrist coordinates
     features[:, xs] -= features[:, xs[0], None]
     features[:, ys] -= features[:, ys[0], None]
     features[:, zs] -= features[:, zs[0], None]
 
     return features
 
-# assuming already centered around wrist
+#This should be run after wrist normalization
 def make_scale_invariant(features):
 
     features = features.astype(float)
@@ -44,12 +44,12 @@ def make_scale_invariant(features):
     ys = xs + 1
     zs = xs + 2
 
-    # anchor joint 0
+    #anchor to writst
     x0 = features[:, xs[0]]
     y0 = features[:, ys[0]]
     z0 = features[:, zs[0]]
 
-    # reference joint 9
+    #reference joint 9
     x9 = features[:, xs[9]]
     y9 = features[:, ys[9]]
     z9 = features[:, zs[9]]
@@ -65,7 +65,6 @@ def normalize(features):
 
     single_sample = False
     if features.ndim == 1:
-        # convert (D,) -> (1, D)
         features = features[None, :]
         single_sample = True
 
@@ -73,7 +72,6 @@ def normalize(features):
     features = make_scale_invariant(features)
 
     if single_sample:
-        # back to (D,)
         return features[0]
     return features
 

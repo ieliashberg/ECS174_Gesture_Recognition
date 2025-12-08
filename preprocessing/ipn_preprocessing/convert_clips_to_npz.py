@@ -40,11 +40,11 @@ def process_clip(clip_dir_path: str):
 
     clip_name = os.path.basename(clip_dir_path)
 
-    # All npz files in a single flat directory
+    #Output directory for all .npz files
     out_file = os.path.join(OUT, f"{clip_name}.npz")
     if os.path.exists(out_file):
         hands.close()
-        return  # Skip processed clips
+        return
 
     frame_files = sorted(
         f for f in os.listdir(clip_dir_path)
@@ -66,7 +66,7 @@ def process_clip(clip_dir_path: str):
         seq = np.stack(seq).astype(np.float32)
         np.savez_compressed(out_file, data=seq)
 
-    hands.close()  # cleanup per process
+    hands.close()
 
 
 if __name__ == "__main__":
@@ -82,7 +82,7 @@ if __name__ == "__main__":
 
     start = time.time()
 
-    # ---- MULTIPROCESSING ----
+    #HAndling multi-processing
     num_workers = max(cpu_count() - 1, 1)
     print(f"Using {num_workers} workers")
 

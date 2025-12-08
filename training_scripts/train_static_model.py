@@ -16,16 +16,16 @@ def load_and_split(filename):
     normalize_data_file(filename)
     df = pd.read_csv(filename)
     features = df.iloc[:, :-1].values.astype(np.float32)
-    labels = df.iloc[:, -1].values  # currently still string labels
-    encoder = LabelEncoder()  # create instance of the label encoder
-    labels_encoded = encoder.fit_transform(labels)  # actually encode the string labels
+    labels = df.iloc[:, -1].values
+    encoder = LabelEncoder()
+    labels_encoded = encoder.fit_transform(labels)
     features_train, features_temp, labels_train, labels_temp = train_test_split(
         features,
         labels_encoded,
         test_size=0.3,
         stratify=labels_encoded,
         random_state=42,
-    )  # split the data 70/30 into train/temp
+    )
     features_test, features_validation, labels_test, labels_validation = (
         train_test_split(
             features_temp,
@@ -34,7 +34,7 @@ def load_and_split(filename):
             stratify=labels_temp,
             random_state=42,
         )
-    )  # split the temp into 50/50 train/validation
+    )
 
     return (
         features_train,
@@ -69,14 +69,13 @@ def train_model(
 
     device = torch.device(
         "cuda" if torch.cuda.is_available() else "cpu"
-    )  # use GPU for training if available. Otherwise CPU
+    )
 
-    # create an instance of our neural network class
     net = StaticGestureNet(features_train.shape[1], len(encoder.classes_))
-    net.to(device)  # move our network instance to the gpu if we have one
+    net.to(device)
 
-    criterion = nn.CrossEntropyLoss()  # set our loss function
-    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)  # set our optimizer
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
     training_accuracy = []
     validation_accuracy = []
@@ -85,46 +84,45 @@ def train_model(
             total=len(train_loader), desc=f"epoch {epoch+1}", unit="batch"
         )
 
-        net.train()  # using batch norm and dropout
+        net.train() #training using batchnorm and dropout
         num_correct_train = 0
         num_total_train = 0
         for X, y in train_loader:
             optimizer.zero_grad()
             X, y = X.to(device), y.to(device)
 
-            outputs = net(X)  # forward pass and calculates outputs
-            loss = criterion(outputs, y)  # get cross entropy loss
-            loss.backward()  # autograd calculates all the gradients for us
-            optimizer.step()  # updates the model weights using the graidents and current model params
+            outputs = net(X)
+            loss = criterion(outputs, y)
+            loss.backward()
+            optimizer.step()
 
             _, predicted = torch.max(
                 outputs, 1
-            )  # get the argmax of ouputs and set that to predicted
+            )
             num_correct_train += (
                 (predicted == y).sum().item()
-            )  # sum the amount of correct
+            )
             num_total_train += len(y)
-            progress_bar.update(1)  # update the progress bar
+            progress_bar.update(1)
         training_accuracy.append(num_correct_train / num_total_train)
 
         num_correct_validation = 0
         num_total_validation = 0
         with torch.no_grad():
             for X, y in validation_loader:
-                net.eval()  # turing off batch norm and dropout for evaulation
+                net.eval()
                 X, y = X.to(device), y.to(
                     device
-                )  # move inputs and labels to the actual device (gpu if using)
-                outputs = net(X)  # get the 1d vector of likelihoods for each class
+                )
+                outputs = net(X)
                 _, predicted = torch.max(
                     outputs, 1
-                )  # take the argmax of each class for each output and set that to predicted
+                )
                 num_correct_validation += (predicted == y).sum().item()
                 num_total_validation += len(y)
         validation_accuracy.append(num_correct_validation / num_total_validation)
     progress_bar.close()
 
-    # after loop: write one file
     checkpoint = {
         "model_state_dict": net.state_dict(),
         "input_dim": features_train.shape[1],
@@ -152,7 +150,7 @@ def test_model(features_test, labels_test):
 
     device = torch.device(
         "cuda" if torch.cuda.is_available() else "cpu"
-    )  # use GPU for training if available. Otherwise CPU
+    )
 
     model = torch.load("static_gesture_net_v1.pt", map_location="cpu")
     net = StaticGestureNet(model["input_dim"], model["num_classes"])
@@ -162,14 +160,14 @@ def test_model(features_test, labels_test):
     num_total_test = 0
     with torch.no_grad():
         for X, y in test_loader:
-            net.eval()  # turing off batch norm and dropout for evaulation
+            net.eval()
             X, y = X.to(device), y.to(
                 device
-            )  # move inputs and labels to the actual device (gpu if using)
-            outputs = net(X)  # get the 1d vector of likelihoods for each class
+            )
+            outputs = net(X)
             _, predicted = torch.max(
                 outputs, 1
-            )  # take the argmax of each class for each output and set that to predicted
+            )
             num_test_correct += (predicted == y).sum().item()
             num_total_test += len(y)
     print(f"model test accuracy = {num_test_correct/num_total_test}")

@@ -79,7 +79,6 @@ def main():
     net.to(device).eval()
 
     classes = loadNet["classes"]
-    class_to_idx = {c: i for i, c in enumerate(classes)}
 
     mp_drawing = mp.solutions.drawing_utils
     mp_styles  = mp.solutions.drawing_styles

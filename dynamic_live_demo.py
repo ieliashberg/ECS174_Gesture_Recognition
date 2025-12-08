@@ -12,13 +12,12 @@ from utils.utils import normalize
 MODEL_PATH = "trained_models\dynamic_gesture_net_v8.pt"
 CAM_INDEX = 0
 
-# ===== REAL-TIME CONTROL PARAMETERS =====
-WINDOW_SIZE      = 25    # reduced from 65 → MUCH lower latency
-STRIDE           = 1     # process every 3rd frame
-MIN_CONF         = 0.70  # require high confidence
-MOTION_THRESHOLD = 0.025 # minimal hand motion to allow prediction
-COOLDOWN         = 0    # frames to silence after gesture detection
-RECENT_MOTION_T  = 3     # how many latest frames to compute motion over
+WINDOW_SIZE      = 25
+STRIDE           = 1
+MIN_CONF         = 0.70
+MOTION_THRESHOLD = 0.025
+COOLDOWN         = 0
+RECENT_MOTION_T  = 3
 DRAW_LANDMARKS   = True
 
 IPN_DECODE = {
@@ -34,30 +33,28 @@ IPN_DECODE = {
 def decode(label): return IPN_DECODE.get(label, label)
 
 def normalize_feat(vec):
-    """Apply SAME normalization as training."""
+    #Apply SAME normalization as training
     v = np.asarray(vec, np.float32).reshape(1, -1)
     return normalize(v).reshape(-1).astype(np.float32)
 
 def build_feature(hand_lms):
-    """Convert mediapipe hand→63-dim vector"""
     out = []
     for lm in hand_lms.landmark:
         out.extend([lm.x, lm.y, lm.z])
     return np.asarray(out, np.float32)
 
-# ---------------------------------------------------------------------------
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    ckpt = torch.load(MODEL_PATH, map_location=device)
+    loadGRU = torch.load(MODEL_PATH, map_location=device)
 
-    input_dim   = ckpt["input_dim"]
-    num_classes = ckpt["num_classes"]
-    classes     = ckpt["classes"]
-    add_vel     = ckpt["add_vel"]
+    input_dim   = loadGRU["input_dim"]
+    num_classes = loadGRU["num_classes"]
+    classes     = loadGRU["classes"]
+    add_vel     = loadGRU["add_vel"]
 
     net = DynamicGestureNet(input_dim, num_classes, hidden=128, layers=2, bidir=True, dropout=0.0).to(device)
-    net.load_state_dict(ckpt["model_state_dict"])
+    net.load_state_dict(loadGRU["model_state_dict"])
     net.eval()
 
     mp_hands = mp.solutions.hands
@@ -88,14 +85,12 @@ def main():
             rgb.flags.writeable = True
             bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
 
-            # draw landmarks
             if res.multi_hand_landmarks and DRAW_LANDMARKS:
                 mp_draw.draw_landmarks(bgr, res.multi_hand_landmarks[0],
                                        mp_hands.HAND_CONNECTIONS,
                                        mp_style.get_default_hand_landmarks_style(),
                                        mp_style.get_default_hand_connections_style())
 
-            # build normalized feature
             if res.multi_hand_landmarks:
                 feat = normalize_feat(build_feature(res.multi_hand_landmarks[0]))
             else:
@@ -104,7 +99,6 @@ def main():
             feat_window.append(feat)
             frame_idx += 1
 
-            # ---------- MOTION GATING ----------
             if len(feat_window) > 1:
                 seq_arr = np.stack(feat_window, axis=0)
                 vel = np.diff(seq_arr[-RECENT_MOTION_T:], axis=0) if len(seq_arr) > RECENT_MOTION_T else np.diff(seq_arr, axis=0)
@@ -112,7 +106,6 @@ def main():
             else:
                 motion = 0.0
 
-            # ---------- PREDICT ----------
             if cooldown == 0 and len(feat_window) == WINDOW_SIZE and frame_idx % STRIDE == 0:
                 seq = np.stack(feat_window, 0).astype(np.float32)
 
@@ -131,17 +124,17 @@ def main():
 
                 if conf >= MIN_CONF and motion >= MOTION_THRESHOLD:
                     last_pred = decode(pred)
-                    cooldown = COOLDOWN               # freeze output
-                    feat_window.clear()               # flush gesture history
+                    cooldown = COOLDOWN
+                    feat_window.clear()
                 else:
                     last_pred = None
 
             else:
                 if cooldown > 0:
                     cooldown -= 1
-                    last_pred = None  # silence during cooldown
+                    last_pred = None
 
-            # ---------- DRAW UI ----------
+           
             disp = cv2.flip(bgr, 1)
             now = time.perf_counter()
             fps = 1.0 / (now - prev_t)
