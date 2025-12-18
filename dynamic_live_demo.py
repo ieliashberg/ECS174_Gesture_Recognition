@@ -9,7 +9,7 @@ import mediapipe as mp
 from model_definitions.dynamic_gesture_net_with_attention import DynamicGestureNet
 from utils.utils import normalize
 
-MODEL_PATH = "trained_models\dynamic_gesture_net_v8.pt"
+MODEL_PATH = "trained_models/dynamic_gesture_net_v8.pt"
 CAM_INDEX = 0
 
 WINDOW_SIZE      = 25
@@ -134,7 +134,7 @@ def main():
                     cooldown -= 1
                     last_pred = None
 
-           
+
             disp = cv2.flip(bgr, 1)
             now = time.perf_counter()
             fps = 1.0 / (now - prev_t)

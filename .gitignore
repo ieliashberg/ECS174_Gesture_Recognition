@@ -4,3 +4,6 @@ __pycache__/
 .DS_Store
 datasets/jester
 datasets/overlays
+results/
+gesture_detection_presentation.mp4
+datasets/IPN/
